@@ -2,10 +2,13 @@ name: Go CI
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main ]
     tags: [ 'v*' ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main ]
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -17,7 +20,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
-        go-version: '1.21'
+        go-version: '1.23'
         cache: true
         
     - name: Install dependencies
@@ -34,18 +37,21 @@ jobs:
 
     - name: Build and zip optimized binaries
       run: |
+        # Get version from git tag
+        VERSION=$(git describe --tags --always)
+        
         # Build optimized binaries
         mkdir -p builds/{linux,darwin,windows}
         
-        GOOS=linux GOARCH=amd64 go build -ldflags=-s\ -w -trimpath -o builds/linux/tt
-        GOOS=darwin GOARCH=amd64 go build -ldflags=-s\ -w -trimpath -o builds/darwin/tt
-        GOOS=windows GOARCH=amd64 go build -ldflags=-s\ -w -trimpath -o builds/windows/tt.exe
+        GOOS=linux GOARCH=amd64 go build -ldflags="-s -w -X main.version=${VERSION}" -trimpath -o builds/linux/tt
+        GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w -X main.version=${VERSION}" -trimpath -o builds/darwin/tt
+        GOOS=windows GOARCH=amd64 go build -ldflags="-s -w -X main.version=${VERSION}" -trimpath -o builds/windows/tt.exe
         
-        # Create zip files
+        # Create zip files with version in filename
         cd builds
-        zip -r ../tt-linux-amd64.zip linux/*
-        zip -r ../tt-darwin-amd64.zip darwin/*
-        zip -r ../tt-windows-amd64.zip windows/*
+        zip -r ../tt-${VERSION}-linux-amd64.zip linux/*
+        zip -r ../tt-${VERSION}-darwin-amd64.zip darwin/*
+        zip -r ../tt-${VERSION}-windows-amd64.zip windows/*
         cd ..
 
     - name: Upload artifacts
@@ -53,6 +59,18 @@ jobs:
       with:
         name: binaries
         path: |
-          tt-linux-amd64.zip
-          tt-darwin-amd64.zip
-          tt-windows-amd64.zip 
+          tt-*-linux-amd64.zip
+          tt-*-darwin-amd64.zip
+          tt-*-windows-amd64.zip
+
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          tt-*-linux-amd64.zip
+          tt-*-darwin-amd64.zip
+          tt-*-windows-amd64.zip
+        draft: false
+        prerelease: false
+        generate_release_notes: true 

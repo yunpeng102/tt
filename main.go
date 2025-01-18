@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
@@ -445,7 +446,14 @@ func isValidStateInput(s string) bool {
 	return false
 }
 
+var version = "dev"
+
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "-v" {
+		fmt.Printf("tt version %s\n", version)
+		return
+	}
+
 	app, err := NewApp()
 	if err != nil {
 		log.Fatal(err)
