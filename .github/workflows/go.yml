@@ -1,0 +1,68 @@
+name: Go CI
+
+on:
+  push:
+    branches: [ main, master ]  # Added master as some repos use this name
+    tags: [ 'v*' ]  # Added tag trigger for releases
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+        cache: true
+        
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y sqlite3 libsqlite3-dev
+        go mod download
+
+    - name: Run golangci-lint
+      uses: golangci/golangci-lint-action@v3
+      with:
+        version: latest
+        args: --timeout=5m
+
+    - name: Run tests
+      run: go test -v ./...
+
+    - name: Build
+      run: go build -v ./...
+
+    - name: Build and zip optimized binaries
+      run: |
+        # Common build flags for optimization
+        BUILD_FLAGS="-ldflags='-s -w' -trimpath"
+        
+        # Create directories for each platform
+        mkdir -p builds/{linux,darwin,windows}
+        
+        # Build optimized binaries
+        GOOS=linux GOARCH=amd64 go build $BUILD_FLAGS -o builds/linux/tt
+        GOOS=darwin GOARCH=amd64 go build $BUILD_FLAGS -o builds/darwin/tt
+        GOOS=windows GOARCH=amd64 go build $BUILD_FLAGS -o builds/windows/tt.exe
+        
+        # Create zip files
+        cd builds
+        zip -r ../tt-linux-amd64.zip linux/*
+        zip -r ../tt-darwin-amd64.zip darwin/*
+        zip -r ../tt-windows-amd64.zip windows/*
+        cd ..
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: binaries
+        path: |
+          tt-linux-amd64.zip
+          tt-darwin-amd64.zip
+          tt-windows-amd64.zip 
