@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"os"
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
@@ -33,14 +32,8 @@ func initDB() (*sql.DB, error) {
 		return nil, fmt.Errorf("error connecting to database: %v", err)
 	}
 
-	// Initialize schema
-	schemaSQL, err := os.ReadFile("init_db.sql")
-	if err != nil {
-		return nil, fmt.Errorf("error reading schema file: %v", err)
-	}
-
-	// Execute the schema SQL
-	_, err = db.Exec(string(schemaSQL))
+	// Execute the embedded schema SQL
+	_, err = db.Exec(initDBSQL)
 	if err != nil {
 		return nil, fmt.Errorf("error creating schema: %v", err)
 	}
